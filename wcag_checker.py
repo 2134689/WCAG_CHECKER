@@ -3,6 +3,9 @@ import json
 import subprocess
 import pandas as pd
 import streamlit as st
+import os
+
+IS_CLOUD = os.getenv("STREAMLIT_SERVER_RUNNING") == "true"
 
 from wcag_utils import (
     parse_rgb,          # ✅ IMPORTANT
@@ -74,6 +77,17 @@ st.caption(
     "ℹ️ Run WCAG Audit generates a report with annotated screenshot. "
     "Live WCAG Audit opens an interactive browser with hover tooltips."
 )
+
+live_audit_btn = st.button(
+    "Live WCAG Audit",
+    disabled=IS_CLOUD
+)
+
+if IS_CLOUD:
+    st.warning(
+        "Live WCAG Audit is disabled on Streamlit Cloud. "
+        "Run locally for interactive auditing."
+    )
 
 
 # -----------------------------
