@@ -22,9 +22,10 @@ async def fully_load_page(page):
 async def analyze(url):
     async with async_playwright() as p:
         browser = await p.chromium.launch(
-            headless=False,
-            args=["--start-maximized"]
-        )
+            headless=True,
+            args=["--no-sandbox", "--disable-dev-shm-usage"]
+            )
+
 
         context = await browser.new_context(viewport=None)
         page = await context.new_page()
