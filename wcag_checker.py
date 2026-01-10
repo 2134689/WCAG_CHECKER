@@ -61,26 +61,27 @@ def run_live_audit(url: str):
         stderr=subprocess.DEVNULL
     )
 
-
 # -----------------------------
 # UI – Buttons
 # -----------------------------
 col1, col2 = st.columns(2)
 
 with col1:
-    run_audit_btn = st.button("Run WCAG Audit")
+    run_audit_btn = st.button(
+        "Run WCAG Audit",
+        key="run_wcag_audit"
+    )
 
 with col2:
-    live_audit_btn = st.button("Live WCAG Audit")
+    live_audit_btn = st.button(
+        "Live WCAG Audit",
+        key="live_wcag_audit",
+        disabled=IS_CLOUD
+    )
 
 st.caption(
     "ℹ️ Run WCAG Audit generates a report with annotated screenshot. "
     "Live WCAG Audit opens an interactive browser with hover tooltips."
-)
-
-live_audit_btn = st.button(
-    "Live WCAG Audit",
-    disabled=IS_CLOUD
 )
 
 if IS_CLOUD:
@@ -182,3 +183,4 @@ if run_audit_btn:
         if screenshot:
             st.subheader("Annotated Screenshot (Failures Only)")
             st.image(screenshot, width="stretch")
+
