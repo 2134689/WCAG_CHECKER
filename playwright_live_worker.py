@@ -1,6 +1,10 @@
 import sys
 import asyncio
 from playwright.async_api import async_playwright
+import os
+
+# Force Playwright to use a shared cache directory
+os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "/tmp/ms-playwright"
 
 async def fully_load_page(page):
     """Scroll through entire page to load lazy-loaded content."""
@@ -142,4 +146,5 @@ def inject_wcag_audit():
 
 
 if __name__ == "__main__":
+
     asyncio.run(live_audit(sys.argv[1]))
