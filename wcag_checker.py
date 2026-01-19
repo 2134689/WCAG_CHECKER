@@ -34,16 +34,28 @@ st.set_page_config(
 )
 
 # Custom CSS for professional look
+# Custom CSS to fix visibility and force contrast
 st.markdown("""
     <style>
-    .main { background-color: #f8f9fa; }
-    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    /* Force the main area to have a consistent background and text color */
+    .stApp {
+        background-color: #FFFFFF !important;
+    }
+    h1, h2, h3, p, span, label {
+        color: #1A1A1A !important;
+    }
+    /* Style the metrics cards specifically */
+    [data-testid="stMetricValue"] {
+        color: #1A1A1A !important;
+    }
+    .stMetric {
+        background-color: #F0F2F6 !important;
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid #DDE1E6;
+    }
     </style>
     """, unsafe_allow_html=True)
-
-st.title("🛡️ WCAG Accessibility Audit – Professional Report")
-st.caption("AI-Powered Contrast Analysis & Design Recommendations")
-
 # Sidebar Configuration
 with st.sidebar:
     st.header("Settings")
@@ -187,3 +199,4 @@ if live_audit_btn and not IS_CLOUD:
     else:
         st.success(f"Launching Live Audit for {url}...")
         run_live_audit(url)
+
