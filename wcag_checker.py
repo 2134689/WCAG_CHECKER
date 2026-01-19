@@ -1,19 +1,32 @@
+import os
 import sys
-import json
 import subprocess
-import pandas as pd
-import streamlit as st
-import os
-from dotenv import load_dotenv
-import os
-import subprocess
+import streamlit as st  # Import first
 
-# Auto-install Playwright browsers if they are missing on the Cloud
+# 1. MUST BE THE FIRST STREAMLIT COMMAND
+st.set_page_config(
+    page_title="WCAG AI Auditor",
+    page_icon="🛡️",
+    layout="wide"
+)
+
+# 2. Performance/Setup Logic (Now safe to use st.error/st.info)
 if not os.path.exists("/home/appuser/.cache/ms-playwright"):
     try:
+        # This setup is common for Streamlit Cloud environments
         subprocess.run(["playwright", "install", "chromium"], check=True)
     except Exception as e:
         st.error(f"Failed to install Playwright: {e}")
+
+# 3. Imports that might use Streamlit logic
+import json
+import asyncio
+import pandas as pd
+from dotenv import load_dotenv
+load_dotenv()
+
+# Rest of your app logic...
+st.title("🛡️ WCAG Accessibility Audit")
 
 # Force a clean Light Theme UI
 st.markdown("""
@@ -36,6 +49,7 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
+
 # Load environment variables
 load_dotenv()
 
@@ -229,5 +243,6 @@ if live_audit_btn and not IS_CLOUD:
     else:
         st.success(f"Launching Live Audit for {url}...")
         run_live_audit(url)
+
 
 
