@@ -1,38 +1,23 @@
 import os
 import google.generativeai as genai
-from dotenv import load_dotenv
-load_dotenv()  
 
 def gemini_color_suggestion(text, fg, bg, ratio, level):
-    # Ensure your .env file uses GEMINI_API_KEY
     api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        return "⚠️ API Key missing. Please set GEMINI_API_KEY."
+    if not api_key: return "⚠️ API Key missing."
 
     try:
         genai.configure(api_key=api_key)
-        # Use flash model for high-speed live interactions
-        model = genai.GenerativeModel("gemini-2.5-flash")
-
+        model = genai.GenerativeModel("gemini-1.5-flash")
         prompt = f"""
-        System: You are a Senior UI/UX Accessibility Consultant.
+        System: Senior Accessibility Consultant.
+        Text: "{text[:50]}" | Colors: {fg} on {bg} | Ratio: {ratio}:1 | Target: {level}
         
-        Element Context:
-        - Content: "{text[:50]}"
-        - Current Colors: Text {fg} on Background {bg}
-        - Current Ratio: {ratio}:1
-        - Target Level: {level}
-
-        Task:
-        1. Provide a specific WCAG-compliant Hex code for the foreground.
-        2. Provide a one-sentence professional design rationale.
-
-        Format:
-        [Fix] #HEXCODE
-        [Rationale] Professional explanation here.
+        Task: 
+        1. Suggest a WCAG-compliant Hex.
+        2. Give a one-sentence professional design reason.
+        Format: [Fix] #HEX [Reason] Text.
         """
-        
         response = model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
-        return f"Recommendation currently unavailable: {str(e)}"
+        return f"Unavailable: {str(e)}"
