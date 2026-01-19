@@ -4,11 +4,13 @@ import subprocess
 import pandas as pd
 import streamlit as st
 import os
+from dotenv import load_dotenv
 
-IS_CLOUD = os.getenv("STREAMLIT_SERVER_RUNNING") == "true"
+# Load environment variables
+load_dotenv()
 
 from wcag_utils import (
-    parse_rgb,          # ✅ IMPORTANT
+    parse_rgb,
     star_rating,
     suggest_wcag_color,
     rgb_to_hex,
@@ -20,167 +22,168 @@ try:
 except Exception:
     GEMINI_AVAILABLE = False
 
+# 1. Detect Environment
+# Streamlit Cloud sets specific environment variables. 
+# We use this to disable features that require a physical monitor.
+IS_CLOUD = os.getenv("STREAMLIT_SERVER_RUNNING") or os.getenv("HOME") == "/home/appuser"
 
-# -----------------------------
-# Streamlit Page Setup
-# -----------------------------
-st.set_page_config(layout="wide")
-st.title("WCAG Accessibility Audit – Professional Report")
-
-url = st.text_input("Website URL")
-USE_GEMINI = st.checkbox(
-    "Use Gemini AI recommendations",
-    disabled=not GEMINI_AVAILABLE
+st.set_page_config(
+    page_title="WCAG AI Auditor",
+    page_icon="🛡️",
+    layout="wide"
 )
 
+# Custom CSS for professional look
+st.markdown("""
+    <style>
+    .main { background-color: #f8f9fa; }
+    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    </style>
+    """, unsafe_allow_html=True)
 
-# -----------------------------
-# Helpers
-# -----------------------------
-def run_batch_audit(url: str):
-    """Runs batch WCAG audit and returns JSON result."""
-    result = subprocess.run(
-        [sys.executable, "playwright_worker.py", url],
-        capture_output=True,
-        text=True
+st.title("🛡️ WCAG Accessibility Audit – Professional Report")
+st.caption("AI-Powered Contrast Analysis & Design Recommendations")
+
+# Sidebar Configuration
+with st.sidebar:
+    st.header("Settings")
+    url = st.text_input("Website URL", placeholder="https://example.com")
+    
+    use_gemini = st.checkbox(
+        "Use Gemini AI recommendations", 
+        value=True,
+        disabled=not GEMINI_AVAILABLE,
+        help="Provides professional design justifications for color fixes."
     )
+    
+    if not GEMINI_AVAILABLE:
+        st.error("Gemini API not configured. Check your GEMINI_API_KEY.")
 
-    if result.returncode != 0:
-        st.error("Playwright batch audit failed.")
-        st.code(result.stderr)
+st.divider()
+
+# 2. Audit Functions
+def run_batch_audit(target_url: str):
+    """Runs the Playwright worker and captures JSON output."""
+    # On Streamlit Cloud, we must ensure playwright browsers are installed
+    # Usually handled by a post-install script, but we can verify here.
+    try:
+        result = subprocess.run(
+            [sys.executable, "playwright_worker.py", target_url],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        return json.loads(result.stdout)
+    except subprocess.CalledProcessError as e:
+        st.error("Playwright audit failed.")
+        with st.expander("Show Technical Error"):
+            st.code(e.stderr)
+        return None
+    except Exception as e:
+        st.error(f"Unexpected error: {str(e)}")
         return None
 
-    return json.loads(result.stdout)
+def run_live_audit(target_url: str):
+    """Launches the interactive browser window (Local Only)."""
+    subprocess.Popen([sys.executable, "playwright_live_worker.py", target_url])
 
-
-def run_live_audit(url: str):
-    """Launches live WCAG audit in a separate process."""
-    subprocess.Popen(
-        [sys.executable, "playwright_live_worker.py", url],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL
-    )
-
-# -----------------------------
-# UI – Buttons
-# -----------------------------
+# 3. UI Layout
 col1, col2 = st.columns(2)
 
 with col1:
-    run_audit_btn = st.button(
-        "Run WCAG Audit",
-        key="run_wcag_audit"
-    )
+    run_audit_btn = st.button("🚀 Run Full Batch Audit", use_container_width=True)
 
 with col2:
+    live_help = "Disabled on Cloud (requires a local display)" if IS_CLOUD else "Launches interactive browser"
     live_audit_btn = st.button(
-        "Live WCAG Audit",
-        key="live_wcag_audit",
-        disabled=IS_CLOUD
+        "👁️ Launch Live Audit", 
+        disabled=IS_CLOUD, 
+        use_container_width=True,
+        help=live_help
     )
-
-st.caption(
-    "ℹ️ Run WCAG Audit generates a report with annotated screenshot. "
-    "Live WCAG Audit opens an interactive browser with hover tooltips."
-)
 
 if IS_CLOUD:
-    st.warning(
-        "Live WCAG Audit is disabled on Streamlit Cloud. "
-        "Run locally for interactive auditing."
-    )
-
+    st.info("💡 **Tip:** Running on the cloud? Full Batch Audits are fully supported. Live Audits require a local machine to open a browser window.")
 
 # -----------------------------
-# Live WCAG Audit
-# -----------------------------
-if live_audit_btn:
-    if not url:
-        st.warning("Please enter a website URL.")
-    else:
-        st.info("Launching Live WCAG Audit in a browser window…")
-        run_live_audit(url)
-
-
-# -----------------------------
-# Batch WCAG Audit
+# Processing Logic
 # -----------------------------
 if run_audit_btn:
     if not url:
-        st.warning("Please enter a website URL.")
+        st.warning("Please enter a valid URL first.")
     else:
-        with st.spinner("Running WCAG audit…"):
+        with st.spinner("🔍 Analyzing page structure and contrast..."):
             data = run_batch_audit(url)
 
-        if not data:
-            st.stop()
+        if data:
+            total_elements = data.get("total_elements", 0)
+            failed_elements = data.get("failed_elements", [])
+            screenshot_path = data.get("screenshot")
 
-        total_elements = data.get("total_elements", 0)
-        failed_elements = data.get("failed_elements", [])
-        screenshot = data.get("screenshot")
+            # Prepare Report Data
+            rows = []
+            for el in failed_elements:
+                bg_rgb = parse_rgb(el.get("background"))
+                if not bg_rgb: continue
 
-        # -----------------------------
-        # Prepare Table Rows
-        # -----------------------------
-        rows = []
+                required = el.get("required", 4.5)
+                
+                # Default logic from wcag_utils
+                suggested_rgb = suggest_wcag_color(bg_rgb, required)
+                suggested_hex = rgb_to_hex(suggested_rgb)
 
-        for el in failed_elements:
-            # 🔒 SAFE background parsing (handles rgb / rgba / skips invalid)
-            bg_rgb = parse_rgb(el.get("background"))
-            if not bg_rgb:
-                continue
+                gemini_text = "Standard Fix"
+                if use_gemini:
+                    gemini_text = gemini_color_suggestion(
+                        el.get("text", ""),
+                        el.get("color", ""),
+                        el.get("background", ""),
+                        el.get("contrast", 0),
+                        el.get("level", "Fail"),
+                    )
 
-            required = el["required"]
+                rows.append({
+                    "Element Text": el.get("text", "")[:50],
+                    "Font": el.get("fontSize"),
+                    "Current Contrast": f"{el.get('contrast')}:1",
+                    "Required": f"{required}:1",
+                    "Status": el.get("level"),
+                    "Suggested Hex": suggested_hex,
+                    "AI Recommendation": gemini_text
+                })
 
-            # deterministic WCAG-safe grayscale suggestion
-            suggested_rgb = suggest_wcag_color(bg_rgb, required)
-            suggested_hex = rgb_to_hex(suggested_rgb)
+            # Dashboard Metrics
+            failures = len(failed_elements)
+            pass_ratio = (total_elements - failures) / max(total_elements, 1)
+            stars = star_rating(pass_ratio)
 
-            gemini_text = None
-            if USE_GEMINI:
-                gemini_text = gemini_color_suggestion(
-                    el["text"],
-                    el["color"],
-                    el["background"],
-                    el["contrast"],
-                    el["level"]
-                )
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Compliance Score", f"{pass_ratio * 100:.1f}%")
+            m2.metric("Violations Found", failures, delta=-failures, delta_color="inverse")
+            m3.metric("Rating", "⭐" * stars)
 
-            rows.append({
-                "Text": el["text"][:80],
-                "Font Size": el["fontSize"],
-                "Foreground": el["color"],
-                "Background": el["background"],
-                "Contrast Ratio": el["contrast"],
-                "WCAG Required": required,
-                "Status": el["level"],
-                "Suggested Color": f"{suggested_hex} / rgb{suggested_rgb}",
-                "Gemini Recommendation": (
-                    gemini_text
-                    or "WCAG-compliant grayscale color improves readability."
-                ),
-            })
+            # Detailed Report
+            st.subheader("📋 Detailed Violation Report")
+            df = pd.DataFrame(rows)
+            st.dataframe(df, use_container_width=True, hide_index=True)
 
-        df = pd.DataFrame(rows)
+            # Screenshot
+            if screenshot_path and os.path.exists(screenshot_path):
+                st.subheader("📸 Annotated Failure Map")
+                st.image(screenshot_path, caption="Red outlines indicate contrast failures.", use_container_width=True)
+                
+                # Download Button for the report
+                with open(screenshot_path, "rb") as file:
+                    st.download_button(
+                        label="Download Annotated Screenshot",
+                        data=file,
+                        file_name="wcag_audit_report.png",
+                        mime="image/png"
+                    )
 
-        # -----------------------------
-        # Accessibility Score (CORRECT)
-        # -----------------------------
-        failures = len(failed_elements)
-        pass_ratio = (total_elements - failures) / max(total_elements, 1)
-        stars = star_rating(pass_ratio)
-
-        # -----------------------------
-        # Results UI
-        # -----------------------------
-        st.subheader("Accessibility Score")
-        st.metric("WCAG Pass %", f"{pass_ratio * 100:.1f}%")
-        st.metric("Star Rating", "⭐" * stars)
-
-        st.subheader(f"WCAG Violations ({failures})")
-        st.dataframe(df, width="stretch")
-
-        if screenshot:
-            st.subheader("Annotated Screenshot (Failures Only)")
-            st.image(screenshot, width="stretch")
-
+if live_audit_btn and not IS_CLOUD:
+    if not url:
+        st.warning("Please enter a URL.")
+    else:
+        st.success(f"Launching Live Audit for {url}...")
+        run_live_audit(url)
