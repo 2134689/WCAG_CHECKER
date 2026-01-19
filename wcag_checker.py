@@ -5,7 +5,37 @@ import pandas as pd
 import streamlit as st
 import os
 from dotenv import load_dotenv
+import os
+import subprocess
 
+# Auto-install Playwright browsers if they are missing on the Cloud
+if not os.path.exists("/home/appuser/.cache/ms-playwright"):
+    try:
+        subprocess.run(["playwright", "install", "chromium"], check=True)
+    except Exception as e:
+        st.error(f"Failed to install Playwright: {e}")
+
+# Force a clean Light Theme UI
+st.markdown("""
+    <style>
+    /* Force background to white and text to dark gray */
+    .stApp {
+        background-color: white !important;
+    }
+    h1, h2, h3, p, span, div, label {
+        color: #262730 !important;
+    }
+    /* Fix button text visibility */
+    .stButton button {
+        color: white !important;
+        background-color: #262730 !important;
+    }
+    /* Fix info box text */
+    .stAlert p {
+        color: #1f2937 !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
 # Load environment variables
 load_dotenv()
 
@@ -199,4 +229,5 @@ if live_audit_btn and not IS_CLOUD:
     else:
         st.success(f"Launching Live Audit for {url}...")
         run_live_audit(url)
+
 
